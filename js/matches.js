@@ -69,11 +69,11 @@ const Matches = {
 
   normalise(m) {
     const start =
-  m.dateTimeGMT
-    ? new Date(
-        m.dateTimeGMT + "Z"
-      ).getTime()
-    : 0;
+      m.dateTimeGMT
+        ? new Date(
+            m.dateTimeGMT + "Z"
+          ).getTime()
+        : 0;
 
     let status =
       'upcoming';
@@ -160,33 +160,33 @@ const Matches = {
   // IPL FILTER
   // ─────────────────────────────
 
-isIPL(match) {
-  if (!match) return false;
+  isIPL(match) {
+    if (!match) return false;
 
-  const name =
-    (match.name || "")
-      .toLowerCase();
+    const name =
+      (match.name || "")
+        .toLowerCase();
 
-  const series =
-    (match.seriesName || "")
-      .toLowerCase();
+    const series =
+      (match.seriesName || "")
+        .toLowerCase();
 
-  // STRICT IPL detection
-  return (
-    series === "indian premier league" ||
-    series.includes("indian premier league") ||
-    name.includes("ipl") ||
-    name.includes("punjab") ||
-    name.includes("gujarat") ||
-    name.includes("mumbai") ||
-    name.includes("chennai") ||
-    name.includes("kolkata") ||
-    name.includes("bangalore") ||
-    name.includes("delhi") ||
-    name.includes("rajasthan") ||
-    name.includes("hyderabad")
-  );
-},
+    // STRICT IPL detection
+    return (
+      series === "indian premier league" ||
+      series.includes("indian premier league") ||
+      name.includes("ipl") ||
+      name.includes("punjab") ||
+      name.includes("gujarat") ||
+      name.includes("mumbai") ||
+      name.includes("chennai") ||
+      name.includes("kolkata") ||
+      name.includes("bangalore") ||
+      name.includes("delhi") ||
+      name.includes("rajasthan") ||
+      name.includes("hyderabad")
+    );
+  },
 
   // ─────────────────────────────
   // FILTERS
