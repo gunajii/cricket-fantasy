@@ -69,11 +69,11 @@ const Matches = {
 
   normalise(m) {
     const start =
-      m.dateTimeGMT
-        ? new Date(
-            m.dateTimeGMT
-          ).getTime()
-        : 0;
+  m.dateTimeGMT
+    ? new Date(
+        m.dateTimeGMT + "Z"
+      ).getTime()
+    : 0;
 
     let status =
       'upcoming';
