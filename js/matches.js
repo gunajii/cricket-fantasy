@@ -59,7 +59,7 @@ const Matches = {
         'API failed — using demo'
       );
 
-      return this.getDemoMatches();
+      return [];
     }
   },
 
@@ -186,7 +186,7 @@ isIPL(match) {
     name.includes("rajasthan") ||
     name.includes("hyderabad")
   );
-}
+},
 
   // ─────────────────────────────
   // FILTERS
@@ -284,61 +284,44 @@ isIPL(match) {
   // PLAYERS
   // ─────────────────────────────
 
-  async fetchPlayers(
-    matchId
-  ) {
-    const key =
-      this.apiKey();
+  async fetchPlayers(matchId) {
+    const key = this.apiKey();
 
     try {
-      const res =
-        await fetch(
-          `${this.baseUrl}/match_squad?apikey=${key}&id=${matchId}`
-        );
+      const res = await fetch(
+        `${this.baseUrl}/match_squad?apikey=${key}&id=${matchId}`
+      );
 
-      const data =
-        await res.json();
+      const data = await res.json();
 
-      if (
-        data.status !==
-          'success' ||
-        !data.data
-      ) {
-        throw new Error(
-          'No players'
-        );
+      if (data.status !== 'success' || !data.data) {
+        throw new Error('No players');
       }
 
-      return data.data.map(
-        (p) => ({
-          id: p.id,
-          name: p.name,
-          team:
-            p.teamName,
-          role:
-            this.mapRole(
-              p.role
-            ),
-          roleEmoji:
-            this.roleEmoji(
-              p.role
-            ),
-          credits: 8,
-          status:
-            p.playing
-              ? 'announced'
-              : 'unannounced',
-          points: 0,
-        })
-      );
-    } catch (e) {
-      console.warn(
-        'Player API failed'
-      );
+      // FIX: Flatten players from the team-based structure
+      const allPlayers = [];
+      data.data.forEach(teamSet => {
+        if (teamSet.players) {
+          teamSet.players.forEach(p => {
+            const mappedRole = this.mapRole(p.role);
+            allPlayers.push({
+              id: p.id,
+              name: p.name,
+              team: teamSet.teamName,
+              role: mappedRole,
+              roleEmoji: this.roleEmoji(mappedRole), // Fixed to use code
+              credits: 8,
+              status: p.playing ? 'announced' : 'unannounced',
+              points: 0,
+            });
+          });
+        }
+      });
 
-      return this.getDemoPlayers(
-        matchId
-      );
+      return allPlayers;
+    } catch (e) {
+      console.warn('Player API failed');
+      return this.getDemoPlayers(matchId);
     }
   },
 
@@ -373,22 +356,10 @@ isIPL(match) {
     return 'BAT';
   },
 
-  roleEmoji(role) {
-    if (
-      role === 'WK'
-    )
-      return '🧤';
-
-    if (
-      role === 'BOWL'
-    )
-      return '🎳';
-
-    if (
-      role === 'ALL'
-    )
-      return '⚡';
-
+  roleEmoji(roleCode) {
+    if (roleCode === 'WK') return '🧤';
+    if (roleCode === 'BOWL') return '🎳';
+    if (roleCode === 'ALL') return '⚡';
     return '🏏';
   },
 
