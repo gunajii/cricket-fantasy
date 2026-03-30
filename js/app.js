@@ -172,6 +172,14 @@ const Leagues = {
     );
   },
 
+  getUserLeagues(username) {
+    const leagues = this.getAll();
+
+    return Object.values(leagues).filter(
+      l => l.members.includes(username)
+    );
+  },
+
   create(
     name,
     matchId,
@@ -359,10 +367,12 @@ const Time = {
     const d = new Date(ts);
 
     return d.toLocaleString('en-IN', {
+      timeZone: 'Asia/Kolkata',
       day: '2-digit',
       month: 'short',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
+      hour12: true
     });
   },
 
