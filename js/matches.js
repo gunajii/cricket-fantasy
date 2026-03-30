@@ -117,7 +117,7 @@ const Matches = {
 
     let actionsHtml = '';
     if (context === 'home') {
-      if (isUpcoming || isLive) {
+      if (isUpcoming) {
         actionsHtml = `
           <button class="btn btn-primary btn-sm" onclick="HomeActions.createLeague('${match.id}', '${this.escapeHtml(match.name)}')">
             🏆 Create League
