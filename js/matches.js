@@ -69,11 +69,11 @@ const Matches = {
 
   normalise(m) {
     const start =
-      m.dateTimeGMT
-        ? new Date(
-            m.dateTimeGMT + "Z"
-          ).getTime()
-        : 0;
+  m.dateTimeGMT
+    ? new Date(
+        m.dateTimeGMT + "Z"
+      ).getTime()
+    : 0;
 
     let status =
       'upcoming';
@@ -160,33 +160,36 @@ const Matches = {
   // IPL FILTER
   // ─────────────────────────────
 
-  isIPL(match) {
-    if (!match) return false;
+isIPL(match) {
+  if (!match) return false;
 
-    const name =
-      (match.name || "")
-        .toLowerCase();
+  const name =
+    (match.name || "")
+      .toLowerCase();
 
-    const series =
-      (match.seriesName || "")
-        .toLowerCase();
+  const series =
+    (match.seriesName || "")
+      .toLowerCase();
 
-    // STRICT IPL detection
-    return (
-      series === "indian premier league" ||
-      series.includes("indian premier league") ||
-      name.includes("ipl") ||
-      name.includes("punjab") ||
-      name.includes("gujarat") ||
-      name.includes("mumbai") ||
-      name.includes("chennai") ||
-      name.includes("kolkata") ||
-      name.includes("bangalore") ||
-      name.includes("delhi") ||
-      name.includes("rajasthan") ||
-      name.includes("hyderabad")
-    );
-  },
+  // STRICT IPL detection - Excluding Legends
+  if (series.includes("legends") || name.includes("legends")) return false;
+
+  return (
+    series.includes("indian premier league") ||
+    series.includes("ipl") ||
+    name.includes("ipl") ||
+    name.includes("punjab") || name.includes("pbks") ||
+    name.includes("gujarat") || name.includes("gt") ||
+    name.includes("mumbai") || name.includes("mi") ||
+    name.includes("chennai") || name.includes("csk") ||
+    name.includes("kolkata") || name.includes("kkr") ||
+    name.includes("bangalore") || name.includes("rcb") ||
+    name.includes("delhi") || name.includes("dc") ||
+    name.includes("rajasthan") || name.includes("rr") ||
+    name.includes("hyderabad") || name.includes("srh") ||
+    name.includes("lucknow") || name.includes("lsg")
+  );
+},
 
   // ─────────────────────────────
   // FILTERS
@@ -202,14 +205,13 @@ const Matches = {
   },
 
   getUpcoming24h(all) {
+    const now = Date.now();
     return all.filter(
       (m) =>
         m.status ===
           'upcoming' &&
         this.isIPL(m) &&
-        Time.isWithin24h(
-          m.startTime
-        )
+        (m.startTime > now && m.startTime <= now + 172800000) // Extended to 48h to ensure visibility
     );
   },
 
@@ -298,7 +300,6 @@ const Matches = {
         throw new Error('No players');
       }
 
-      // FIX: Flatten players from the team-based structure
       const allPlayers = [];
       data.data.forEach(teamSet => {
         if (teamSet.players) {
@@ -309,7 +310,7 @@ const Matches = {
               name: p.name,
               team: teamSet.teamName,
               role: mappedRole,
-              roleEmoji: this.roleEmoji(mappedRole), // Fixed to use code
+              roleEmoji: this.roleEmoji(mappedRole),
               credits: 8,
               status: p.playing ? 'announced' : 'unannounced',
               points: 0,
