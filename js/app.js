@@ -1,33 +1,35 @@
 // ── PRIVATE DREAM11 — app.js ──
 
 const APP = {
-  version: '1.2.0',
+  version: '1.1.0',
+  name: 'Private Dream11',
   maxUsers: 15,
   maxCredits: 100,
-  maxPlayers: 11
+  maxPlayers: 11,
 };
 
 const Store = {
-  get(key) {
+  get: (key) => {
     try {
-      return JSON.parse(
-        localStorage.getItem(key)
-      );
+      return JSON.parse(localStorage.getItem(key));
     } catch {
       return null;
     }
   },
 
-  set(key, val) {
-    localStorage.setItem(
-      key,
-      JSON.stringify(val)
-    );
+  set: (key, val) => {
+    try {
+      localStorage.setItem(key, JSON.stringify(val));
+    } catch (e) {
+      console.warn('Storage error', e);
+    }
   },
 
-  remove(key) {
-    localStorage.removeItem(key);
-  }
+  remove: (key) =>
+    localStorage.removeItem(key),
+
+  clear: () =>
+    localStorage.clear(),
 };
 
 const Auth = {
@@ -35,60 +37,75 @@ const Auth = {
 
   init() {
     const saved =
-      Store.get(
-        "pd11_current_user"
-      );
+      Store.get('pd11_current_user');
 
     if (saved) {
       this.currentUser = saved;
       this.updateUI();
+      return true;
     }
+
+    return false;
   },
 
   login(username, pin) {
-    let users =
-      Store.get("pd11_users") ||
-      {};
+    const users =
+      Store.get('pd11_users') || {};
 
     if (users[username]) {
-      if (
-        users[username].pin !==
-        pin
-      ) {
-        return {
-          ok: false,
-          msg: "Wrong PIN"
+      if (users[username].pin === pin) {
+        this.currentUser = {
+          username,
+          ...users[username],
         };
-      }
-    } else {
-      if (
-        Object.keys(users)
-          .length >=
-        APP.maxUsers
-      ) {
-        return {
-          ok: false,
-          msg: "League full"
-        };
+
+        Store.set(
+          'pd11_current_user',
+          this.currentUser
+        );
+
+        this.updateUI();
+
+        return { ok: true };
       }
 
-      users[username] = {
-        pin,
-        createdAt: Date.now()
+      return {
+        ok: false,
+        msg: 'Wrong PIN',
       };
     }
 
+    const allUsers =
+      Object.keys(users);
+
+    if (
+      allUsers.length >=
+      APP.maxUsers
+    ) {
+      return {
+        ok: false,
+        msg: `League full (max ${APP.maxUsers})`,
+      };
+    }
+
+    users[username] = {
+      pin,
+      createdAt: Date.now(),
+      teams: [],
+    };
+
     Store.set(
-      "pd11_users",
+      'pd11_users',
       users
     );
 
     this.currentUser = {
-      username
+      username,
+      ...users[username],
     };
 
     Store.set(
-      "pd11_current_user",
+      'pd11_current_user',
       this.currentUser
     );
 
@@ -98,43 +115,68 @@ const Auth = {
   },
 
   logout() {
+    this.currentUser = null;
+
     Store.remove(
-      "pd11_current_user"
+      'pd11_current_user'
     );
 
-    location.href =
-      "index.html";
+    window.location.href =
+      'index.html';
+  },
+
+  require() {
+    if (!this.currentUser) {
+      window.location.href =
+        'index.html';
+
+      return false;
+    }
+
+    return true;
   },
 
   updateUI() {
     const el =
       document.getElementById(
-        "nav-username"
+        'nav-username'
       );
 
-    if (
-      el &&
-      this.currentUser
-    ) {
+    const av =
+      document.getElementById(
+        'nav-avatar'
+      );
+
+    if (el)
       el.textContent =
         this.currentUser.username;
-    }
-  }
+
+    if (av)
+      av.textContent =
+        this.currentUser.username[0].toUpperCase();
+  },
 };
 
 const Leagues = {
   getAll() {
     return (
-      Store.get(
-        "pd11_leagues"
-      ) || {}
+      Store.get('pd11_leagues') ||
+      {}
     );
   },
 
   save(leagues) {
     Store.set(
-      "pd11_leagues",
+      'pd11_leagues',
       leagues
+    );
+  },
+
+  getUserLeagues(username) {
+    const leagues = this.getAll();
+
+    return Object.values(leagues).filter(
+      l => l.members.includes(username)
     );
   },
 
@@ -162,7 +204,7 @@ const Leagues = {
       createdAt: Date.now(),
       members: [username],
       teams: {},
-      link
+      link,
     };
 
     this.save(leagues);
@@ -177,26 +219,22 @@ const Leagues = {
     if (!leagues[code])
       return {
         ok: false,
-        msg: "Invalid code"
+        msg: 'Invalid code',
       };
 
     if (
       leagues[
         code
-      ].members.includes(
-        username
-      )
+      ].members.includes(username)
     )
       return {
         ok: false,
-        msg: "Already joined"
+        msg: 'Already joined',
       };
 
     leagues[
       code
-    ].members.push(
-      username
-    );
+    ].members.push(username);
 
     this.save(leagues);
 
@@ -216,19 +254,20 @@ const Leagues = {
 
     const match =
       Matches.cache?.find(
-        m =>
-          m.id ===
-          team.matchId
+        (m) =>
+          m.id === team.matchId
       );
 
     if (
       match &&
       match.status !==
-        "upcoming"
+        'upcoming'
     ) {
-      alert(
-        "Team locked — match started"
+      Toast.show(
+        'Team locked — match started',
+        'error'
       );
+
       return false;
     }
 
@@ -241,33 +280,48 @@ const Leagues = {
     return true;
   },
 
-  // CRITICAL FIX — this was missing
-  getUserLeagues(username) {
+  getLeaderboard(code) {
     const leagues =
       this.getAll();
 
-    return Object.values(
-      leagues
-    ).filter(
-      l =>
-        l.members &&
-        l.members.includes(
-          username
-        )
-    );
+    if (!leagues[code])
+      return [];
+
+    const league =
+      leagues[code];
+
+    return Object.entries(
+      league.teams
+    )
+      .map(([user, team]) => ({
+        username: user,
+        teamName: team.name,
+        points:
+          Points.calcTeamPoints(
+            team
+          ),
+        captain: team.captain,
+        viceCaptain:
+          team.viceCaptain,
+        players: team.players,
+      }))
+      .sort(
+        (a, b) =>
+          b.points - a.points
+      )
+      .map((e, i) => ({
+        ...e,
+        rank: i + 1,
+      }));
   },
 
   generateCode() {
     const chars =
-      "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+      'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
 
-    let code = "";
+    let code = '';
 
-    for (
-      let i = 0;
-      i < 6;
-      i++
-    ) {
+    for (let i = 0; i < 6; i++)
       code +=
         chars[
           Math.floor(
@@ -275,7 +329,6 @@ const Leagues = {
               chars.length
           )
         ];
-    }
 
     const leagues =
       this.getAll();
@@ -283,21 +336,40 @@ const Leagues = {
     return leagues[code]
       ? this.generateCode()
       : code;
-  }
+  },
 };
+
+const Toast = {
+  show(
+    msg,
+    type = 'info'
+  ) {
+    console.log(
+      `[${type}]`,
+      msg
+    );
+  },
+};
+
+document.addEventListener(
+  'DOMContentLoaded',
+  () => {
+    Auth.init();
+  }
+);
+
+// ── RESTORED & CORRECTED HELPERS ──
 
 const Time = {
   formatMatch(ts) {
     if (!ts) return "";
 
-    const d =
-      new Date(ts);
+    const d = new Date(ts);
 
     return d.toLocaleString(
       "en-IN",
       {
-        timeZone:
-          "Asia/Kolkata",
+        timeZone: "Asia/Kolkata",
         day: "2-digit",
         month: "short",
         hour: "2-digit",
@@ -310,54 +382,52 @@ const Time = {
   isWithin24h(ts) {
     if (!ts) return false;
 
-    const now =
-      Date.now();
+    const now = Date.now();
+    const window = 24 * 60 * 60 * 1000;
 
     return (
       ts > now &&
-      ts <=
-        now +
-          24 *
-            60 *
-            60 *
-            1000
+      ts <= now + window
     );
+  },
+
+  countdown(ts) {
+    const diff = ts - Date.now();
+
+    if (diff <= 0)
+      return 'Starting soon';
+
+    const h = Math.floor(diff / 3600000);
+
+    const m = Math.floor(
+      (diff % 3600000) / 60000
+    );
+
+    if (h > 0)
+      return `${h}h ${m}m`;
+
+    return `${m}m`;
   }
 };
 
 const Modal = {
   open(id) {
     const el =
-      document.getElementById(
-        id
-      );
+      document.getElementById(id);
 
     if (el)
-      el.classList.add(
-        "open"
-      );
+      el.classList.add('open');
   },
 
   close(id) {
     const el =
-      document.getElementById(
-        id
-      );
+      document.getElementById(id);
 
     if (el)
-      el.classList.remove(
-        "open"
-      );
+      el.classList.remove('open');
   }
 };
 
 function seedDemoStats() {
   return;
 }
-
-document.addEventListener(
-  "DOMContentLoaded",
-  () => {
-    Auth.init();
-  }
-);
