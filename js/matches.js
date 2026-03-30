@@ -31,34 +31,22 @@ const Matches = {
         `${this.baseUrl}/currentMatches?apikey=${key}&offset=0`
       );
 
-      const data =
-        await res.json();
+      const data = await res.json();
 
-      if (
-        data.status !==
-        'success'
-      ) {
-        throw new Error(
-          data.reason
-        );
+      if (data.status !== 'success') {
+        throw new Error(data.reason);
       }
 
-      const matches =
-        (data.data || []).map(
-          (m) =>
-            this.normalise(m)
-        );
+      const matches = (data.data || []).map(
+        (m) => this.normalise(m)
+      );
 
       this.cache = matches;
-      this.cacheTime =
-        Date.now();
+      this.cacheTime = Date.now();
 
       return matches;
     } catch (e) {
-      console.warn(
-        'API failed — using demo'
-      );
-
+      console.warn('API failed — using demo');
       return [];
     }
   },
@@ -68,128 +56,76 @@ const Matches = {
   // ─────────────────────────────
 
   normalise(m) {
-    const start =
-  m.dateTimeGMT
-    ? new Date(
-        m.dateTimeGMT + "Z"
-      ).getTime()
-    : 0;
+    const start = m.dateTimeGMT
+      ? new Date(m.dateTimeGMT + "Z").getTime()
+      : 0;
 
-    let status =
-      'upcoming';
+    let status = 'upcoming';
 
-    if (m.matchEnded)
-      status =
-        'finished';
-    else if (
-      m.matchStarted
-    )
-      status = 'live';
+    if (m.matchEnded) status = 'finished';
+    else if (m.matchStarted) status = 'live';
 
-    const teams =
-      m.teams ||
-      [m.t1, m.t2];
+    const teams = m.teams || [m.t1, m.t2];
 
     return {
       id: m.id,
-
       name: m.name,
-
-      seriesName:
-        m.seriesName ||
-        m.series_id ||
-        '',
-
+      seriesName: m.seriesName || m.series_id || '',
       startTime: start,
-
-      venue:
-        m.venue || '',
-
-      format:
-        (
-          m.matchType ||
-          'T20'
-        ).toUpperCase(),
-
+      venue: m.venue || '',
+      format: (m.matchType || 'T20').toUpperCase(),
       status,
-
       team1: {
         name: teams[0],
-        shortName:
-          this.shortName(
-            teams[0]
-          ),
+        shortName: this.shortName(teams[0]),
       },
-
       team2: {
         name: teams[1],
-        shortName:
-          this.shortName(
-            teams[1]
-          ),
+        shortName: this.shortName(teams[1]),
       },
     };
   },
 
   shortName(name) {
-    if (!name)
-      return 'TBD';
-
-    const words =
-      name
-        .trim()
-        .split(' ');
-
-    if (
-      words.length === 1
-    )
-      return name
-        .substring(0, 3)
-        .toUpperCase();
+    if (!name) return 'TBD';
+    const words = name.trim().split(' ');
+    if (words.length === 1)
+      return name.substring(0, 3).toUpperCase();
 
     return words
-      .map(
-        (w) => w[0]
-      )
+      .map((w) => w[0])
       .join('')
       .substring(0, 3)
       .toUpperCase();
   },
 
   // ─────────────────────────────
-  // IPL FILTER
+  // STRICT IPL FILTER
   // ─────────────────────────────
 
-isIPL(match) {
-  if (!match) return false;
+  isIPL(match) {
+    if (!match) return false;
 
-  const name =
-    (match.name || "")
-      .toLowerCase();
+    const name = (match.name || "").toLowerCase();
+    const series = (match.seriesName || "").toLowerCase();
 
-  const series =
-    (match.seriesName || "")
-      .toLowerCase();
+    // 1. HARD BLOCK for Legends League
+    if (series.includes("legends") || name.includes("legends")) {
+      return false;
+    }
 
-  // STRICT IPL detection - Excluding Legends
-  if (series.includes("legends") || name.includes("legends")) return false;
+    // 2. IPL KEYWORDS (Series + Teams + Abbreviations)
+    const iplKeywords = [
+      "indian premier league", "ipl",
+      "punjab", "pbks", "gujarat", "gt", 
+      "mumbai", "mi", "chennai", "csk", 
+      "kolkata", "kkr", "bangalore", "rcb", 
+      "delhi", "dc", "rajasthan", "rr", 
+      "hyderabad", "srh", "lucknow", "lsg"
+    ];
 
-  return (
-    series.includes("indian premier league") ||
-    series.includes("ipl") ||
-    name.includes("ipl") ||
-    name.includes("punjab") || name.includes("pbks") ||
-    name.includes("gujarat") || name.includes("gt") ||
-    name.includes("mumbai") || name.includes("mi") ||
-    name.includes("chennai") || name.includes("csk") ||
-    name.includes("kolkata") || name.includes("kkr") ||
-    name.includes("bangalore") || name.includes("rcb") ||
-    name.includes("delhi") || name.includes("dc") ||
-    name.includes("rajasthan") || name.includes("rr") ||
-    name.includes("hyderabad") || name.includes("srh") ||
-    name.includes("lucknow") || name.includes("lsg")
-  );
-},
+    return iplKeywords.some(kw => name.includes(kw) || series.includes(kw));
+  },
 
   // ─────────────────────────────
   // FILTERS
@@ -197,31 +133,27 @@ isIPL(match) {
 
   getLive(all) {
     return all.filter(
-      (m) =>
-        m.status ===
-          'live' &&
-        this.isIPL(m)
+      (m) => m.status === 'live' && this.isIPL(m)
     );
   },
 
   getUpcoming24h(all) {
     const now = Date.now();
+    // Use 48 hours to ensure tonight's match is captured even if GMT/Local time differs slightly
+    const window48h = 48 * 60 * 60 * 1000; 
+
     return all.filter(
       (m) =>
-        m.status ===
-          'upcoming' &&
+        m.status === 'upcoming' &&
         this.isIPL(m) &&
-        (m.startTime > now && m.startTime <= now + 172800000) // Extended to 48h to ensure visibility
+        (m.startTime > now && m.startTime <= now + window48h)
     );
   },
 
   getFinished(all) {
     return all
       .filter(
-        (m) =>
-          m.status ===
-            'finished' &&
-          this.isIPL(m)
+        (m) => m.status === 'finished' && this.isIPL(m)
       )
       .slice(0, 10);
   },
@@ -231,10 +163,7 @@ isIPL(match) {
   // ─────────────────────────────
 
   renderCard(match) {
-    const isUpcoming =
-      match.status ===
-      'upcoming';
-
+    const isUpcoming = match.status === 'upcoming';
     let actions = '';
 
     if (isUpcoming) {
@@ -252,17 +181,11 @@ isIPL(match) {
     return `
       <div class="match-card">
         <div>
-          ${match.team1.shortName}
-          vs
-          ${match.team2.shortName}
+          ${match.team1.shortName} vs ${match.team2.shortName}
         </div>
-
         <div>
-          ${Time.formatMatch(
-            match.startTime
-          )}
+          ${Time.formatMatch(match.startTime)}
         </div>
-
         <div>
           ${actions}
         </div>
@@ -272,18 +195,12 @@ isIPL(match) {
 
   escapeHtml(str) {
     return String(str)
-      .replace(
-        /'/g,
-        "\\'"
-      )
-      .replace(
-        /"/g,
-        '&quot;'
-      );
+      .replace(/'/g, "\\'")
+      .replace(/"/g, '&quot;');
   },
 
   // ─────────────────────────────
-  // PLAYERS
+  // PLAYERS (FIXED NESTING)
   // ─────────────────────────────
 
   async fetchPlayers(matchId) {
@@ -327,33 +244,11 @@ isIPL(match) {
   },
 
   mapRole(role) {
-    if (!role)
-      return 'BAT';
-
-    const r =
-      role.toLowerCase();
-
-    if (
-      r.includes(
-        'keeper'
-      )
-    )
-      return 'WK';
-
-    if (
-      r.includes(
-        'bowl'
-      )
-    )
-      return 'BOWL';
-
-    if (
-      r.includes(
-        'all'
-      )
-    )
-      return 'ALL';
-
+    if (!role) return 'BAT';
+    const r = role.toLowerCase();
+    if (r.includes('keeper')) return 'WK';
+    if (r.includes('bowl')) return 'BOWL';
+    if (r.includes('all')) return 'ALL';
     return 'BAT';
   },
 
@@ -368,67 +263,25 @@ isIPL(match) {
   // DEMO PLAYERS
   // ─────────────────────────────
 
-  getDemoPlayers(
-    matchId
-  ) {
-    const teams = [
-      'Team A',
-      'Team B',
-    ];
-
-    const roles = [
-      'WK',
-      'BAT',
-      'BAT',
-      'BAT',
-      'ALL',
-      'ALL',
-      'ALL',
-      'BOWL',
-      'BOWL',
-      'BOWL',
-      'BOWL',
-    ];
-
+  getDemoPlayers(matchId) {
+    const teams = ['Team A', 'Team B'];
+    const roles = ['WK', 'BAT', 'BAT', 'BAT', 'ALL', 'ALL', 'ALL', 'BOWL', 'BOWL', 'BOWL', 'BOWL'];
     let players = [];
 
-    teams.forEach(
-      (team) => {
-        roles.forEach(
-          (role, i) => {
-            players.push({
-              id:
-                matchId +
-                '_' +
-                team +
-                '_' +
-                i,
-
-              name:
-                team +
-                ' Player ' +
-                (i + 1),
-
-              team,
-
-              role,
-
-              roleEmoji:
-                this.roleEmoji(
-                  role
-                ),
-
-              credits: 8,
-
-              status:
-                'unannounced',
-
-              points: 0,
-            });
-          }
-        );
-      }
-    );
+    teams.forEach((team) => {
+      roles.forEach((role, i) => {
+        players.push({
+          id: matchId + '_' + team + '_' + i,
+          name: team + ' Player ' + (i + 1),
+          team,
+          role,
+          roleEmoji: this.roleEmoji(role),
+          credits: 8,
+          status: 'unannounced',
+          points: 0,
+        });
+      });
+    });
 
     return players;
   },
