@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Private Dream11 — Build Team</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏏</text></svg>">
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="nav-inner">
+    <a href="index.html" class="nav-logo">🏏 <span>Private</span> D11</a>
+    <ul class="nav-links">
+      <li><a href="index.html">Home</a></li>
+      <li><a href="league.html">Leagues</a></li>
+      <li><a href="team.html" class="active">Build Team</a></li>
+      <li><a href="leaderboard.html">Leaderboard</a></li>
+      <li><a href="compare.html">Compare</a></li>
+    </ul>
+    <div class="nav-user">
+      <div class="nav-avatar" id="nav-avatar">U</div>
+      <span id="nav-username" style="font-weight:600;font-size:14px;color:var(--text2)"></span>
+      <button class="btn btn-secondary btn-sm" id="logout-btn">Logout</button>
+    </div>
+    <div class="hamburger" id="hamburger"><span></span><span></span><span></span></div>
+  </div>
+</nav>
+
+<div class="container">
+  <div class="page-header">
+    <div class="page-title">BUILD YOUR TEAM</div>
+    <div class="page-subtitle" id="match-label">Select 11 players within 100 credits</div>
+  </div>
+
+  <!-- Credit + Player count bar -->
+  <div class="credit-bar-wrap">
+    <div class="credit-info">
+      <span class="credit-label">Credits Left</span>
+      <span class="credit-value" id="credits-left">100</span>
+    </div>
+    <div class="credit-bar">
+      <div class="credit-fill" id="credit-fill" style="width:100%"></div>
+    </div>
+    <div class="player-count" id="player-count">0 <span>/ 11</span></div>
+    <div style="margin-left:auto;display:flex;gap:8px">
+      <span id="cap-status" style="font-size:13px;color:var(--text3)">Captain: <span style="color:var(--accent)">—</span></span>
+      <span id="vc-status" style="font-size:13px;color:var(--text3)">VC: <span style="color:var(--blue)">—</span></span>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 340px;gap:20px;align-items:start" id="team-layout">
+    <!-- Left: Player selection -->
+    <div>
+      <!-- Tabs -->
+      <div class="tabs">
+        <button class="tab-btn active" onclick="TeamBuilder.filterRole('all', this)">All</button>
+        <button class="tab-btn" onclick="TeamBuilder.filterRole('WK', this)">🧤 WK</button>
+        <button class="tab-btn" onclick="TeamBuilder.filterRole('BAT', this)">🏏 BAT</button>
+        <button class="tab-btn" onclick="TeamBuilder.filterRole('ALL', this)">⚡ ALL</button>
+        <button class="tab-btn" onclick="TeamBuilder.filterRole('BOWL', this)">🎳 BOWL</button>
+      </div>
+
+      <!-- Search + Sort -->
+      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+        <div class="search-wrap" style="flex:1;margin:0">
+          <span class="search-icon">🔍</span>
+          <input class="search-input" id="player-search" placeholder="Search players…" oninput="TeamBuilder.search(this.value)">
+        </div>
+        <select class="form-select" style="width:160px" onchange="TeamBuilder.sortBy(this.value)">
+          <option value="credits">Sort: Credits</option>
+          <option value="points">Sort: Points</option>
+          <option value="name">Sort: Name</option>
+        </select>
+      </div>
+
+      <!-- Team filter -->
+      <div class="filter-bar" id="team-filter"></div>
+
+      <!-- Players list -->
+      <div class="players-grid" id="players-grid">
+        <div class="loading-spinner" style="grid-column:1/-1"><div class="spinner"></div><span>Loading players…</span></div>
+      </div>
+    </div>
+
+    <!-- Right: Pitch view + actions -->
+    <div style="position:sticky;top:80px">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:1px;color:var(--text3);margin-bottom:8px">TEAM PREVIEW</div>
+      <div id="pitch-view-container"></div>
+
+      <!-- Role breakdown -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:16px" id="role-breakdown">
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:6px;padding:8px;text-align:center">
+          <div style="font-size:20px">🧤</div>
+          <div id="count-wk" style="font-family:'JetBrains Mono',monospace;font-weight:600;font-size:18px">0</div>
+          <div style="font-size:10px;color:var(--text3)">WK</div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:6px;padding:8px;text-align:center">
+          <div style="font-size:20px">🏏</div>
+          <div id="count-bat" style="font-family:'JetBrains Mono',monospace;font-weight:600;font-size:18px">0</div>
+          <div style="font-size:10px;color:var(--text3)">BAT</div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:6px;padding:8px;text-align:center">
+          <div style="font-size:20px">⚡</div>
+          <div id="count-all" style="font-family:'JetBrains Mono',monospace;font-weight:600;font-size:18px">0</div>
+          <div style="font-size:10px;color:var(--text3)">ALL</div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:6px;padding:8px;text-align:center">
+          <div style="font-size:20px">🎳</div>
+          <div id="count-bowl" style="font-family:'JetBrains Mono',monospace;font-weight:600;font-size:18px">0</div>
+          <div style="font-size:10px;color:var(--text3)">BOWL</div>
+        </div>
+      </div>
+
+      <!-- Team name -->
+      <div class="form-group">
+        <label class="form-label">Team Name</label>
+        <input class="form-input" id="team-name-input" placeholder="My Dream Team" maxlength="25">
+      </div>
+
+      <!-- Save button -->
+      <button class="btn btn-primary btn-full btn-lg" onclick="TeamBuilder.saveTeam()">
+        🏆 Save Team
+      </button>
+      <button class="btn btn-secondary btn-full mt-8" onclick="TeamBuilder.resetTeam()" style="margin-top:8px">
+        🗑️ Reset
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── SAVE SUCCESS MODAL ── -->
+<div class="modal-overlay" id="modal-saved">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">✅ Team Saved!</div>
+      <button class="modal-close">✕</button>
+    </div>
+    <div class="modal-body" style="text-align:center">
+      <div style="font-size:48px;margin-bottom:12px">🏆</div>
+      <div style="font-weight:700;font-size:18px" id="saved-team-name">Your team</div>
+      <div style="color:var(--text3);margin-top:8px">has been saved to your league.</div>
+    </div>
+    <div class="modal-footer">
+      <a href="league.html" class="btn btn-secondary">View League</a>
+      <a href="leaderboard.html" class="btn btn-primary">Leaderboard →</a>
+    </div>
+  </div>
+</div>
+
+<script src="js/app.js"></script>
+<script src="js/matches.js"></script>
+<script src="js/points.js"></script>
+<script>
+const TeamBuilder = {
+  allPlayers: [],
+  filtered: [],
+  selected: [],
+  captainId: null,
+  vcId: null,
+  matchId: null,
+  leagueCode: null,
+  activeRole: 'all',
+  activeTeam: null,
+
+  async init() {
+    if (!Auth.require()) return;
+    seedDemoStats();
+    this.matchId = Params.get('match') || 'demo_1';
+    this.leagueCode = Params.get('league') || '';
+
+    const matches = await Matches.fetchAll();
+    const match = matches.find(m => m.id === this.matchId) || Matches.getDemoMatches().find(m => m.id === this.matchId);
+    if (match) {
+      document.getElementById('match-label').textContent = `${match.team1?.name || 'Team A'} vs ${match.team2?.name || 'Team B'} · ${match.format}`;
+    }
+
+    this.allPlayers = Matches.getDemoPlayers(this.matchId);
+    this.filtered = [...this.allPlayers];
+
+    // Team filter
+    const teams = [...new Set(this.allPlayers.map(p => p.team))];
+    const tf = document.getElementById('team-filter');
+    tf.innerHTML = `<button class="filter-chip active" onclick="TeamBuilder.filterTeam(null,this)">All Teams</button>` +
+      teams.map(t => `<button class="filter-chip" onclick="TeamBuilder.filterTeam('${t}',this)">${t}</button>`).join('');
+
+    this.renderPlayers();
+    this.renderPitch();
+  },
+
+  renderPlayers() {
+    const grid = document.getElementById('players-grid');
+    if (!this.filtered.length) {
+      grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">🔍</div><div class="empty-title">No players found</div></div>`;
+      return;
+    }
+    grid.innerHTML = this.filtered.map(p =>
+      PointsUI.renderPlayerCard(p, this.selected, this.captainId, this.vcId,
+        'TeamBuilder.togglePlayer', 'TeamBuilder.setCaptain', 'TeamBuilder.setVC')
+    ).join('');
+  },
+
+  renderPitch() {
+    document.getElementById('pitch-view-container').innerHTML =
+      PointsUI.renderPitchView(this.selected, this.captainId, this.vcId);
+    this.updateBar();
+    this.updateRoleCounts();
+  },
+
+  updateBar() {
+    const used = this.selected.reduce((s, p) => s + p.credits, 0);
+    const left = Math.max(0, 100 - used);
+    const pct = (left / 100) * 100;
+    document.getElementById('credits-left').textContent = left.toFixed(1);
+    document.getElementById('credit-fill').style.width = pct + '%';
+    document.getElementById('credit-fill').style.background = left < 10 ? 'var(--red)' : left < 20 ? 'var(--accent)' : 'linear-gradient(90deg,var(--accent),var(--green))';
+    document.getElementById('player-count').innerHTML = `${this.selected.length} <span>/ 11</span>`;
+    const cap = this.selected.find(p => p.id === this.captainId);
+    const vc = this.selected.find(p => p.id === this.vcId);
+    document.getElementById('cap-status').innerHTML = `Captain: <span style="color:var(--accent)">${cap ? cap.name.split(' ')[0] : '—'}</span>`;
+    document.getElementById('vc-status').innerHTML = `VC: <span style="color:var(--blue)">${vc ? vc.name.split(' ')[0] : '—'}</span>`;
+  },
+
+  updateRoleCounts() {
+    const cnt = { wk: 0, bat: 0, all: 0, bowl: 0 };
+    this.selected.forEach(p => {
+      if (p.role === 'WK') cnt.wk++;
+      else if (p.role === 'BAT') cnt.bat++;
+      else if (p.role === 'ALL') cnt.all++;
+      else cnt.bowl++;
+    });
+    document.getElementById('count-wk').textContent = cnt.wk;
+    document.getElementById('count-bat').textContent = cnt.bat;
+    document.getElementById('count-all').textContent = cnt.all;
+    document.getElementById('count-bowl').textContent = cnt.bowl;
+  },
+
+  togglePlayer(id) {
+    const player = this.allPlayers.find(p => p.id === id);
+    if (!player) return;
+    const idx = this.selected.findIndex(p => p.id === id);
+    if (idx >= 0) {
+      this.selected.splice(idx, 1);
+      if (this.captainId === id) this.captainId = null;
+      if (this.vcId === id) this.vcId = null;
+    } else {
+      if (this.selected.length >= 11) { Toast.show('Max 11 players', 'error'); return; }
+      const usedCred = this.selected.reduce((s, p) => s + p.credits, 0);
+      if (usedCred + player.credits > 100) { Toast.show('Not enough credits', 'error'); return; }
+      const teamCount = this.selected.filter(p => p.team === player.team).length;
+      if (teamCount >= 7) { Toast.show('Max 7 players from one team', 'error'); return; }
+      this.selected.push(player);
+    }
+    this.renderPlayers();
+    this.renderPitch();
+  },
+
+  setCaptain(id) {
+    if (!this.selected.find(p => p.id === id)) return;
+    if (this.vcId === id) this.vcId = null;
+    this.captainId = this.captainId === id ? null : id;
+    this.renderPlayers();
+    this.renderPitch();
+  },
+
+  setVC(id) {
+    if (!this.selected.find(p => p.id === id)) return;
+    if (this.captainId === id) this.captainId = null;
+    this.vcId = this.vcId === id ? null : id;
+    this.renderPlayers();
+    this.renderPitch();
+  },
+
+  filterRole(role, btn) {
+    this.activeRole = role;
+    document.querySelectorAll('.tabs .tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    this.applyFilters();
+  },
+
+  filterTeam(team, btn) {
+    this.activeTeam = team;
+    document.querySelectorAll('.filter-bar .filter-chip').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    this.applyFilters();
+  },
+
+  search(query) {
+    this._query = query.toLowerCase();
+    this.applyFilters();
+  },
+
+  sortBy(field) {
+    this._sortField = field;
+    this.applyFilters();
+  },
+
+  applyFilters() {
+    let list = [...this.allPlayers];
+    if (this.activeRole && this.activeRole !== 'all') {
+      list = list.filter(p => p.role === this.activeRole);
+    }
+    if (this.activeTeam) {
+      list = list.filter(p => p.team === this.activeTeam);
+    }
+    if (this._query) {
+      list = list.filter(p => p.name.toLowerCase().includes(this._query));
+    }
+    if (this._sortField === 'points') {
+      list.sort((a, b) => (b.points || 0) - (a.points || 0));
+    } else if (this._sortField === 'name') {
+      list.sort((a, b) => a.name.localeCompare(b.name));
+    } else {
+      list.sort((a, b) => b.credits - a.credits);
+    }
+    this.filtered = list;
+    this.renderPlayers();
+  },
+
+  resetTeam() {
+    if (!confirm('Reset your team? All selections will be cleared.')) return;
+    this.selected = [];
+    this.captainId = null;
+    this.vcId = null;
+    this.renderPlayers();
+    this.renderPitch();
+    Toast.show('Team reset', 'info');
+  },
+
+  saveTeam() {
+    const val = Teams.validate(this.selected, this.selected.reduce((s,p)=>s+p.credits,0));
+    if (!val.ok) { Toast.show(val.msg, 'error'); return; }
+    if (!this.captainId) { Toast.show('Select a Captain (C)', 'error'); return; }
+    if (!this.vcId) { Toast.show('Select a Vice-Captain (VC)', 'error'); return; }
+    const name = document.getElementById('team-name-input').value.trim() || Auth.currentUser.username + "'s Team";
+    const team = {
+      name,
+      matchId: this.matchId,
+      players: this.selected,
+      captain: this.captainId,
+      viceCaptain: this.vcId,
+      credits: this.selected.reduce((s,p)=>s+p.credits,0),
+    };
+    const teamId = Teams.create(Auth.currentUser.username, team);
+    if (this.leagueCode) {
+      Leagues.addTeam(this.leagueCode, Auth.currentUser.username, team);
+    }
+    document.getElementById('saved-team-name').textContent = name;
+    Modal.open('modal-saved');
+  },
+};
+
+// Responsive: collapse right panel on mobile
+function checkLayout() {
+  const layout = document.getElementById('team-layout');
+  if (layout) {
+    layout.style.gridTemplateColumns = window.innerWidth < 900 ? '1fr' : '1fr 340px';
+  }
+}
+window.addEventListener('resize', checkLayout);
+
+document.addEventListener('DOMContentLoaded', () => {
+  checkLayout();
+  TeamBuilder.init();
+});
+</script>
+</body>
+</html>

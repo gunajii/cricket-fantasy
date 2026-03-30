@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Private Dream11 — Leaderboard</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏏</text></svg>">
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="nav-inner">
+    <a href="index.html" class="nav-logo">🏏 <span>Private</span> D11</a>
+    <ul class="nav-links">
+      <li><a href="index.html">Home</a></li>
+      <li><a href="league.html">Leagues</a></li>
+      <li><a href="team.html">Build Team</a></li>
+      <li><a href="leaderboard.html" class="active">Leaderboard</a></li>
+      <li><a href="compare.html">Compare</a></li>
+    </ul>
+    <div class="nav-user">
+      <div class="nav-avatar" id="nav-avatar">U</div>
+      <span id="nav-username" style="font-weight:600;font-size:14px;color:var(--text2)"></span>
+      <button class="btn btn-secondary btn-sm" id="logout-btn">Logout</button>
+    </div>
+    <div class="hamburger" id="hamburger"><span></span><span></span><span></span></div>
+  </div>
+</nav>
+
+<div class="container">
+  <div class="page-header" style="display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:12px">
+    <div>
+      <div class="page-title">LEADERBOARD</div>
+      <div class="page-subtitle">Rankings across your private leagues</div>
+    </div>
+    <button class="btn btn-outline btn-sm" onclick="LB.refresh()">↻ Refresh Points</button>
+  </div>
+
+  <!-- League selector -->
+  <div class="form-group" style="max-width:400px;margin-bottom:24px">
+    <label class="form-label">Select League</label>
+    <select class="form-select" id="league-select" onchange="LB.selectLeague(this.value)">
+      <option value="">— Choose a league —</option>
+    </select>
+  </div>
+
+  <!-- My rank highlight -->
+  <div id="my-rank-card" class="hidden" style="background:linear-gradient(135deg,rgba(244,196,48,0.1),rgba(41,121,255,0.08));border:1px solid rgba(244,196,48,0.3);border-radius:var(--radius);padding:20px;margin-bottom:24px;display:flex;align-items:center;gap:20px;flex-wrap:wrap">
+    <div style="font-size:48px" id="my-rank-medal">🥇</div>
+    <div>
+      <div style="font-size:14px;color:var(--text3);text-transform:uppercase;letter-spacing:1px">Your Position</div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:36px;letter-spacing:2px" id="my-rank-text">Rank #1</div>
+      <div style="color:var(--text2)" id="my-rank-pts">0 points</div>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab-btn active" onclick="LB.showTab('rankings', this)">🏆 Rankings</button>
+    <button class="tab-btn" onclick="LB.showTab('players', this)">👤 Player Points</button>
+  </div>
+
+  <!-- Rankings -->
+  <div id="tab-rankings">
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden" id="lb-table">
+      <div class="empty-state">
+        <div class="empty-icon">🏆</div>
+        <div class="empty-title">Select a league</div>
+        <div class="empty-subtitle">Choose a league to see the rankings</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Player Points -->
+  <div id="tab-players" class="hidden">
+    <div style="margin-bottom:16px;display:flex;gap:8px;flex-wrap:wrap">
+      <div class="search-wrap" style="flex:1;margin:0;max-width:320px">
+        <span class="search-icon">🔍</span>
+        <input class="search-input" placeholder="Search player…" oninput="LB.searchPlayer(this.value)">
+      </div>
+      <select class="form-select" style="width:180px" id="match-select-pts" onchange="LB.loadPlayerPoints(this.value)">
+        <option value="demo_1">India vs Australia</option>
+      </select>
+    </div>
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden" id="player-pts-table">
+      <div class="loading-spinner"><div class="spinner"></div></div>
+    </div>
+  </div>
+</div>
+
+<script src="js/app.js"></script>
+<script src="js/matches.js"></script>
+<script src="js/points.js"></script>
+<script>
+const LB = {
+  currentLeague: null,
+  currentPlayers: [],
+
+  async init() {
+    if (!Auth.require()) return;
+    seedDemoStats();
+
+    const myLeagues = Leagues.getUserLeagues(Auth.currentUser.username);
+    const sel = document.getElementById('league-select');
+    myLeagues.forEach(l => {
+      const opt = document.createElement('option');
+      opt.value = l.code;
+      opt.textContent = `${l.name} (${l.code})`;
+      sel.appendChild(opt);
+    });
+
+    const code = Params.get('league');
+    if (code) {
+      sel.value = code;
+      this.selectLeague(code);
+    }
+
+    // Load match options
+    const matches = await Matches.fetchAll();
+    const msel = document.getElementById('match-select-pts');
+    msel.innerHTML = '';
+    [...Matches.getLive(matches), ...Matches.getUpcoming24h(matches), ...Matches.getFinished(matches), ...Matches.getDemoMatches()]
+      .filter((m, i, arr) => arr.findIndex(x => x.id === m.id) === i)
+      .forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m.id;
+        opt.textContent = m.name;
+        msel.appendChild(opt);
+      });
+
+    this.loadPlayerPoints('demo_1');
+  },
+
+  selectLeague(code) {
+    if (!code) return;
+    this.currentLeague = code;
+    const lb = Leagues.getLeaderboard(code);
+    document.getElementById('lb-table').innerHTML = PointsUI.renderLeaderboard(lb.map(e => ({ ...e, leagueCode: code })));
+
+    // My rank
+    const me = lb.find(e => e.username === Auth.currentUser.username);
+    if (me) {
+      const card = document.getElementById('my-rank-card');
+      card.classList.remove('hidden');
+      const medals = ['🥇', '🥈', '🥉'];
+      document.getElementById('my-rank-medal').textContent = medals[me.rank - 1] || '🎖️';
+      document.getElementById('my-rank-text').textContent = `Rank #${me.rank} of ${lb.length}`;
+      document.getElementById('my-rank-pts').textContent = `${me.points} points · ${me.teamName || Auth.currentUser.username + "'s Team"}`;
+    }
+  },
+
+  showTab(tab, btn) {
+    document.querySelectorAll('.tabs .tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-rankings').classList.toggle('hidden', tab !== 'rankings');
+    document.getElementById('tab-players').classList.toggle('hidden', tab !== 'players');
+  },
+
+  loadPlayerPoints(matchId) {
+    const players = Matches.getDemoPlayers(matchId || 'demo_1');
+    this.currentPlayers = players;
+    document.getElementById('player-pts-table').innerHTML = PointsUI.renderPlayerStats(players);
+  },
+
+  searchPlayer(query) {
+    const q = query.toLowerCase();
+    const filtered = q ? this.currentPlayers.filter(p => p.name.toLowerCase().includes(q)) : this.currentPlayers;
+    document.getElementById('player-pts-table').innerHTML = PointsUI.renderPlayerStats(filtered);
+  },
+
+  refresh() {
+    Toast.show('Refreshing points…', 'info', 1500);
+    if (this.currentLeague) this.selectLeague(this.currentLeague);
+    const msel = document.getElementById('match-select-pts');
+    if (msel) this.loadPlayerPoints(msel.value);
+  },
+};
+
+document.addEventListener('DOMContentLoaded', () => LB.init());
+</script>
+</body>
+</html>

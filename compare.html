@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Private Dream11 — Compare Teams</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏏</text></svg>">
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="nav-inner">
+    <a href="index.html" class="nav-logo">🏏 <span>Private</span> D11</a>
+    <ul class="nav-links">
+      <li><a href="index.html">Home</a></li>
+      <li><a href="league.html">Leagues</a></li>
+      <li><a href="team.html">Build Team</a></li>
+      <li><a href="leaderboard.html">Leaderboard</a></li>
+      <li><a href="compare.html" class="active">Compare</a></li>
+    </ul>
+    <div class="nav-user">
+      <div class="nav-avatar" id="nav-avatar">U</div>
+      <span id="nav-username" style="font-weight:600;font-size:14px;color:var(--text2)"></span>
+      <button class="btn btn-secondary btn-sm" id="logout-btn">Logout</button>
+    </div>
+    <div class="hamburger" id="hamburger"><span></span><span></span><span></span></div>
+  </div>
+</nav>
+
+<div class="container">
+  <div class="page-header">
+    <div class="page-title">TEAM COMPARISON</div>
+    <div class="page-subtitle">Compare two teams head-to-head</div>
+  </div>
+
+  <!-- Selectors -->
+  <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:end;margin-bottom:28px" id="selector-grid">
+    <div>
+      <div class="form-group" style="margin-bottom:8px">
+        <label class="form-label">League</label>
+        <select class="form-select" id="league-sel" onchange="Compare.loadLeague(this.value)">
+          <option value="">— Select league —</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin:0">
+        <label class="form-label">Team 1</label>
+        <select class="form-select" id="team1-sel" onchange="Compare.selectTeam(1, this.value)">
+          <option value="">— Select player —</option>
+        </select>
+      </div>
+    </div>
+    <div style="text-align:center;padding-bottom:8px">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:32px;color:var(--text3)">VS</div>
+    </div>
+    <div>
+      <div class="form-group" style="margin-bottom:8px">
+        <label class="form-label">&nbsp;</label>
+        <div class="form-input" style="background:transparent;color:var(--text3);cursor:default">Same league</div>
+      </div>
+      <div class="form-group" style="margin:0">
+        <label class="form-label">Team 2</label>
+        <select class="form-select" id="team2-sel" onchange="Compare.selectTeam(2, this.value)">
+          <option value="">— Select player —</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stats summary -->
+  <div id="compare-summary" class="hidden" style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:24px">
+    <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:16px;text-align:center;align-items:center">
+      <div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:1px" id="sum-name1">—</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:36px;font-weight:600;color:var(--green)" id="sum-pts1">0</div>
+        <div style="font-size:13px;color:var(--text3)">points</div>
+      </div>
+      <div>
+        <div id="winner-badge" style="font-size:28px">⚖️</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:4px" id="diff-label">—</div>
+      </div>
+      <div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:1px" id="sum-name2">—</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:36px;font-weight:600;color:var(--green)" id="sum-pts2">0</div>
+        <div style="font-size:13px;color:var(--text3)">points</div>
+      </div>
+    </div>
+    <!-- Shared players bar -->
+    <div id="shared-players" style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)"></div>
+  </div>
+
+  <!-- Compare grid -->
+  <div class="compare-grid" id="compare-grid">
+    <div style="display:flex;flex-direction:column;gap:16px" id="compare-left">
+      <div class="empty-state">
+        <div class="empty-icon">👈</div>
+        <div class="empty-title">Select Team 1</div>
+      </div>
+    </div>
+    <div class="compare-vs" style="padding-top:24px;text-align:center">VS</div>
+    <div style="display:flex;flex-direction:column;gap:16px" id="compare-right">
+      <div class="empty-state">
+        <div class="empty-icon">👉</div>
+        <div class="empty-title">Select Team 2</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="js/app.js"></script>
+<script src="js/matches.js"></script>
+<script src="js/points.js"></script>
+<script>
+const Compare = {
+  currentLeague: null,
+  team1: null,
+  team2: null,
+  leaderboard: [],
+
+  init() {
+    if (!Auth.require()) return;
+    seedDemoStats();
+
+    const myLeagues = Leagues.getUserLeagues(Auth.currentUser.username);
+    const sel = document.getElementById('league-sel');
+    myLeagues.forEach(l => {
+      const opt = document.createElement('option');
+      opt.value = l.code;
+      opt.textContent = `${l.name} (${l.code})`;
+      sel.appendChild(opt);
+    });
+
+    const code = Params.get('league');
+    const user1 = Params.get('user1');
+    if (code) {
+      sel.value = code;
+      this.loadLeague(code);
+      if (user1) {
+        setTimeout(() => {
+          document.getElementById('team1-sel').value = user1;
+          this.selectTeam(1, user1);
+        }, 100);
+      }
+    }
+
+    // Responsive grid
+    this.checkLayout();
+    window.addEventListener('resize', () => this.checkLayout());
+  },
+
+  checkLayout() {
+    const grid = document.getElementById('compare-grid');
+    const sGrid = document.getElementById('selector-grid');
+    const vs = document.querySelector('.compare-vs');
+    if (window.innerWidth < 768) {
+      grid.style.display = 'flex';
+      grid.style.flexDirection = 'column';
+      sGrid.style.gridTemplateColumns = '1fr';
+      if (vs) vs.style.display = 'none';
+    } else {
+      grid.style.display = 'grid';
+      grid.style.gridTemplateColumns = '1fr auto 1fr';
+      sGrid.style.gridTemplateColumns = '1fr auto 1fr';
+      if (vs) vs.style.display = 'block';
+    }
+  },
+
+  loadLeague(code) {
+    if (!code) return;
+    this.currentLeague = code;
+    this.leaderboard = Leagues.getLeaderboard(code);
+
+    const sel1 = document.getElementById('team1-sel');
+    const sel2 = document.getElementById('team2-sel');
+    sel1.innerHTML = '<option value="">— Select player —</option>';
+    sel2.innerHTML = '<option value="">— Select player —</option>';
+
+    this.leaderboard.forEach(e => {
+      [sel1, sel2].forEach(sel => {
+        const opt = document.createElement('option');
+        opt.value = e.username;
+        opt.textContent = `${e.username} (${e.teamName || 'Team'}) · ${e.points}pts`;
+        sel.appendChild(opt);
+      });
+    });
+
+    this.team1 = null;
+    this.team2 = null;
+    this.render();
+  },
+
+  selectTeam(num, username) {
+    if (!username) { if (num === 1) this.team1 = null; else this.team2 = null; this.render(); return; }
+    const entry = this.leaderboard.find(e => e.username === username);
+    if (num === 1) this.team1 = entry;
+    else this.team2 = entry;
+    this.render();
+  },
+
+  render() {
+    document.getElementById('compare-left').innerHTML = PointsUI.renderCompareTeam(this.team1) || `<div class="empty-state"><div class="empty-icon">👈</div><div class="empty-title">Select Team 1</div></div>`;
+    document.getElementById('compare-right').innerHTML = PointsUI.renderCompareTeam(this.team2) || `<div class="empty-state"><div class="empty-icon">👉</div><div class="empty-title">Select Team 2</div></div>`;
+
+    const summary = document.getElementById('compare-summary');
+    if (this.team1 && this.team2) {
+      summary.classList.remove('hidden');
+      const p1 = this.team1.points, p2 = this.team2.points;
+      document.getElementById('sum-name1').textContent = this.team1.teamName || this.team1.username;
+      document.getElementById('sum-pts1').textContent = p1;
+      document.getElementById('sum-name2').textContent = this.team2.teamName || this.team2.username;
+      document.getElementById('sum-pts2').textContent = p2;
+
+      const diff = Math.abs(p1 - p2);
+      if (p1 > p2) {
+        document.getElementById('winner-badge').textContent = '🏆';
+        document.getElementById('diff-label').innerHTML = `<span style="color:var(--green)">${this.team1.username} leads by ${diff} pts</span>`;
+      } else if (p2 > p1) {
+        document.getElementById('winner-badge').textContent = '🏆';
+        document.getElementById('diff-label').innerHTML = `<span style="color:var(--green)">${this.team2.username} leads by ${diff} pts</span>`;
+      } else {
+        document.getElementById('winner-badge').textContent = '🤝';
+        document.getElementById('diff-label').innerHTML = `<span style="color:var(--accent)">It's a tie!</span>`;
+      }
+
+      // Shared players
+      const ids1 = new Set((this.team1.players || []).map(p => p.id));
+      const shared = (this.team2.players || []).filter(p => ids1.has(p.id));
+      if (shared.length) {
+        document.getElementById('shared-players').innerHTML = `
+          <div style="font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">
+            Shared Players (${shared.length})
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            ${shared.map(p => `
+              <div style="background:var(--bg3);border:1px solid var(--border2);border-radius:6px;padding:6px 12px;display:flex;align-items:center;gap:6px;font-size:13px">
+                <span>${p.roleEmoji || '🏏'}</span>
+                <span style="font-weight:600">${p.name}</span>
+                <span style="color:var(--text3)">${p.role}</span>
+              </div>`).join('')}
+          </div>`;
+      } else {
+        document.getElementById('shared-players').innerHTML = `<div style="font-size:13px;color:var(--text3)">No shared players between these teams.</div>`;
+      }
+    } else {
+      summary.classList.add('hidden');
+    }
+  },
+};
+
+document.addEventListener('DOMContentLoaded', () => Compare.init());
+</script>
+</body>
+</html>

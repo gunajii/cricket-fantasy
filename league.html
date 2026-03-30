@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Private Dream11 — Leagues</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏏</text></svg>">
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="nav-inner">
+    <a href="index.html" class="nav-logo">🏏 <span>Private</span> D11</a>
+    <ul class="nav-links">
+      <li><a href="index.html">Home</a></li>
+      <li><a href="league.html" class="active">Leagues</a></li>
+      <li><a href="team.html">Build Team</a></li>
+      <li><a href="leaderboard.html">Leaderboard</a></li>
+      <li><a href="compare.html">Compare</a></li>
+    </ul>
+    <div class="nav-user">
+      <div class="nav-avatar" id="nav-avatar">U</div>
+      <span id="nav-username" style="font-weight:600;font-size:14px;color:var(--text2)"></span>
+      <button class="btn btn-secondary btn-sm" id="logout-btn">Logout</button>
+    </div>
+    <div class="hamburger" id="hamburger"><span></span><span></span><span></span></div>
+  </div>
+</nav>
+
+<div class="container">
+  <div class="page-header" style="display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:12px">
+    <div>
+      <div class="page-title">MY LEAGUES</div>
+      <div class="page-subtitle">Manage your private cricket leagues</div>
+    </div>
+    <div class="flex gap-8">
+      <button class="btn btn-secondary" onclick="Modal.open('modal-join')">🔗 Join League</button>
+      <button class="btn btn-primary" onclick="LeaguePage.quickCreate()">+ Create League</button>
+    </div>
+  </div>
+
+  <!-- League list / detail -->
+  <div id="league-view"></div>
+</div>
+
+<!-- ── LEAGUE DETAIL VIEW (injected) ── -->
+
+<!-- ── JOIN LEAGUE MODAL ── -->
+<div class="modal-overlay" id="modal-join">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">🔗 Join a League</div>
+      <button class="modal-close">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">League Code</label>
+        <input class="form-input" id="join-code" placeholder="6-character code" maxlength="6"
+          style="letter-spacing:4px;font-family:'JetBrains Mono',monospace;font-size:22px;text-transform:uppercase">
+        <div class="form-hint">Get the code from your league admin.</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="Modal.close('modal-join')">Cancel</button>
+      <button class="btn btn-primary" onclick="LeaguePage.joinLeague()">Join</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── QUICK CREATE MODAL ── -->
+<div class="modal-overlay" id="modal-quick-create">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">🏆 Create League</div>
+      <button class="modal-close">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">League Name</label>
+        <input class="form-input" id="qc-name" placeholder="e.g. Boys Group, Office League…" maxlength="30">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Match (optional)</label>
+        <select class="form-select" id="qc-match">
+          <option value="">— Select a match —</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="Modal.close('modal-quick-create')">Cancel</button>
+      <button class="btn btn-primary" onclick="LeaguePage.submitCreate()">Create</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── CREATED CODE MODAL ── -->
+<div class="modal-overlay" id="modal-code-show">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">🎉 League Ready!</div>
+      <button class="modal-close">✕</button>
+    </div>
+    <div class="modal-body" style="text-align:center">
+      <div style="color:var(--text2);margin-bottom:8px">Share this code with your group:</div>
+      <div class="league-code" id="show-code-val">------</div>
+      <button class="btn btn-secondary btn-sm mt-8" onclick="LeaguePage.copyCode()">📋 Copy Code</button>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary btn-full" onclick="Modal.close('modal-code-show');LeaguePage.render()">View League</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/app.js"></script>
+<script src="js/matches.js"></script>
+<script src="js/points.js"></script>
+<script>
+const LeaguePage = {
+  activeCode: null,
+  _lastCode: null,
+
+  async init() {
+    if (!Auth.require()) return;
+    const code = Params.get('code');
+    const allMatches = await Matches.fetchAll();
+
+    // Populate match dropdown
+    const sel = document.getElementById('qc-match');
+    [...Matches.getLive(allMatches), ...Matches.getUpcoming24h(allMatches)].forEach(m => {
+      const opt = document.createElement('option');
+      opt.value = m.id;
+      opt.textContent = m.name;
+      sel.appendChild(opt);
+    });
+
+    if (code) {
+      this.activeCode = code;
+    }
+    this.render();
+  },
+
+  render() {
+    const username = Auth.currentUser.username;
+    const myLeagues = Leagues.getUserLeagues(username);
+    const view = document.getElementById('league-view');
+
+    if (!myLeagues.length) {
+      view.innerHTML = `
+        <div class="empty-state" style="margin-top:40px">
+          <div class="empty-icon">🏆</div>
+          <div class="empty-title">No leagues yet</div>
+          <div class="empty-subtitle">Create a league or join one using a code</div>
+          <div class="flex gap-8 flex-center mt-16">
+            <button class="btn btn-primary" onclick="LeaguePage.quickCreate()">+ Create League</button>
+            <button class="btn btn-secondary" onclick="Modal.open('modal-join')">🔗 Join League</button>
+          </div>
+        </div>`;
+      return;
+    }
+
+    if (this.activeCode && myLeagues.find(l => l.code === this.activeCode)) {
+      this.renderDetail(this.activeCode);
+      return;
+    }
+
+    // Show league list
+    view.innerHTML = `
+      <div style="display:grid;gap:16px">
+        ${myLeagues.map(l => this.renderLeagueCard(l, username)).join('')}
+      </div>`;
+  },
+
+  renderLeagueCard(l, username) {
+    const lb = Leagues.getLeaderboard(l.code);
+    const myEntry = lb.find(e => e.username === username);
+    const hasTeam = !!l.teams[username];
+    return `
+    <div class="league-card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px">
+        <div>
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:1px">${l.name}</div>
+          <div class="league-code">${l.code}</div>
+          <div class="league-meta">
+            <span>🏏 ${l.matchName || 'All Matches'}</span>
+            <span>👥 ${l.members.length} member${l.members.length !== 1 ? 's' : ''}</span>
+            <span>📅 ${new Date(l.createdAt).toLocaleDateString('en-IN')}</span>
+            <span>👑 ${l.createdBy}</span>
+          </div>
+        </div>
+        <div style="text-align:right">
+          ${myEntry ? `<div style="font-family:'JetBrains Mono',monospace;font-size:24px;color:var(--green)">${myEntry.points} pts</div><div style="font-size:12px;color:var(--text3)">Rank #${myEntry.rank}</div>` : ''}
+        </div>
+      </div>
+      <div class="flex gap-8 mt-16" style="flex-wrap:wrap">
+        <button class="btn btn-primary btn-sm" onclick="LeaguePage.viewDetail('${l.code}')">View League →</button>
+        ${!hasTeam ? `<a href="team.html?league=${l.code}&match=${l.matchId || ''}" class="btn btn-outline btn-sm">Build Team</a>` : ''}
+        <button class="btn btn-secondary btn-sm" onclick="navigator.clipboard&&navigator.clipboard.writeText('${l.code}');Toast.show('Code copied!','success')">📋 ${l.code}</button>
+      </div>
+    </div>`;
+  },
+
+  renderDetail(code) {
+    const leagues = Leagues.getAll();
+    const league = leagues[code];
+    if (!league) return;
+    const username = Auth.currentUser.username;
+    const lb = Leagues.getLeaderboard(code);
+    const hasTeam = !!league.teams[username];
+
+    document.getElementById('league-view').innerHTML = `
+    <div>
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+        <button class="btn btn-secondary btn-sm" onclick="LeaguePage.activeCode=null;LeaguePage.render()">← Back</button>
+        <div>
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:1px">${league.name}</div>
+          <div style="color:var(--text3);font-size:13px">Code: <span class="text-accent" style="font-family:'JetBrains Mono',monospace;font-size:16px;letter-spacing:2px">${code}</span>
+          <button class="btn btn-secondary btn-sm" style="margin-left:8px" onclick="navigator.clipboard&&navigator.clipboard.writeText('${code}');Toast.show('Code copied!','success')">📋</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="stats-row" style="margin-bottom:20px">
+        <div class="stat-card"><div class="stat-value">${league.members.length}</div><div class="stat-label">Members</div></div>
+        <div class="stat-card"><div class="stat-value">${Object.keys(league.teams).length}</div><div class="stat-label">Teams</div></div>
+        <div class="stat-card"><div class="stat-value">${lb[0]?.points || 0}</div><div class="stat-label">Top Score</div></div>
+        <div class="stat-card"><div class="stat-value">${lb.find(e=>e.username===username)?.rank || '—'}</div><div class="stat-label">Your Rank</div></div>
+      </div>
+
+      <div class="league-meta" style="margin-bottom:20px;padding:12px 16px;background:var(--card);border:1px solid var(--border);border-radius:8px">
+        <span>🏏 ${league.matchName || 'All Matches'}</span>
+        <span>👑 Created by ${league.createdBy}</span>
+        <span>📅 ${new Date(league.createdAt).toLocaleDateString('en-IN')}</span>
+      </div>
+
+      ${!hasTeam ? `
+      <div style="background:rgba(244,196,48,0.08);border:1px solid rgba(244,196,48,0.3);border-radius:8px;padding:16px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+        <div>
+          <div style="font-weight:700;color:var(--accent)">⚠️ You haven't built a team yet</div>
+          <div style="font-size:13px;color:var(--text3);margin-top:4px">Create your team to appear on the leaderboard</div>
+        </div>
+        <a href="team.html?league=${code}&match=${league.matchId || 'demo_1'}" class="btn btn-primary">Build My Team</a>
+      </div>` : ''}
+
+      <div class="section-label">🏆 Leaderboard</div>
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden">
+        ${PointsUI.renderLeaderboard(lb.map(e => ({ ...e, leagueCode: code })))}
+      </div>
+
+      <div class="section-label" style="margin-top:24px">👥 Members</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        ${league.members.map(m => `
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 16px;display:flex;align-items:center;gap:8px">
+            <div class="team-avatar" style="width:28px;height:28px;font-size:12px">${m[0].toUpperCase()}</div>
+            <span style="font-weight:600">${m}</span>
+            ${league.teams[m] ? '<span style="color:var(--green);font-size:12px">✓ Team ready</span>' : '<span style="color:var(--text3);font-size:12px">No team</span>'}
+          </div>`).join('')}
+      </div>
+    </div>`;
+  },
+
+  viewDetail(code) {
+    this.activeCode = code;
+    history.pushState({}, '', `?code=${code}`);
+    this.renderDetail(code);
+  },
+
+  async quickCreate() {
+    Modal.open('modal-quick-create');
+  },
+
+  submitCreate() {
+    const name = document.getElementById('qc-name').value.trim();
+    if (!name) { Toast.show('Enter a league name', 'error'); return; }
+    const matchId = document.getElementById('qc-match').value;
+    const matchName = matchId ? document.getElementById('qc-match').selectedOptions[0].textContent : 'Open League';
+    const code = Leagues.create(name, matchId, matchName, Auth.currentUser.username);
+    Modal.close('modal-quick-create');
+    this._lastCode = code;
+    document.getElementById('show-code-val').textContent = code;
+    Modal.open('modal-code-show');
+  },
+
+  joinLeague() {
+    const code = document.getElementById('join-code').value.trim().toUpperCase();
+    if (code.length < 6) { Toast.show('Enter full 6-char code', 'error'); return; }
+    const result = Leagues.join(code, Auth.currentUser.username);
+    if (!result.ok) { Toast.show(result.msg, 'error'); return; }
+    Modal.close('modal-join');
+    Toast.show('Joined! Build your team.', 'success');
+    setTimeout(() => this.viewDetail(code), 500);
+  },
+
+  copyCode() {
+    if (navigator.clipboard && this._lastCode) {
+      navigator.clipboard.writeText(this._lastCode);
+      Toast.show('Code copied!', 'success');
+    }
+  },
+};
+
+document.addEventListener('DOMContentLoaded', () => LeaguePage.init());
+</script>
+</body>
+</html>

@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Private Dream11 — Home</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏏</text></svg>">
+</head>
+<body>
+
+<!-- ── LOGIN SCREEN ── -->
+<div id="login-screen" class="login-screen">
+  <div class="login-card">
+    <div class="login-logo">🏏 PD11</div>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px;color:var(--text)">PRIVATE DREAM11</div>
+    <div class="login-tagline">Your private fantasy cricket league · 12–15 players max</div>
+    <div style="margin-bottom:20px">
+      <div class="form-group">
+        <label class="form-label">Username</label>
+        <input class="form-input" id="login-username" placeholder="Enter your username" autocomplete="off" maxlength="20">
+      </div>
+      <div class="form-group">
+        <label class="form-label">PIN (4–6 digits)</label>
+        <input class="form-input" id="login-pin" type="password" placeholder="••••••" maxlength="6" inputmode="numeric">
+        <div class="form-hint">New user? Your account will be created automatically.</div>
+      </div>
+      <button class="btn btn-primary btn-full btn-lg" id="login-btn">Enter League 🏆</button>
+      <div id="login-error" style="color:var(--red);margin-top:10px;font-size:14px;display:none"></div>
+    </div>
+    <div style="font-size:12px;color:var(--text3);border-top:1px solid var(--border);padding-top:16px">
+      Invite-only · Private · GitHub Pages hosted · No server
+    </div>
+  </div>
+</div>
+
+<!-- ── MAIN APP ── -->
+<div id="main-app" class="hidden">
+  <nav class="navbar">
+    <div class="nav-inner">
+      <a href="index.html" class="nav-logo">🏏 <span>Private</span> D11</a>
+      <ul class="nav-links">
+        <li><a href="index.html" class="active">Home</a></li>
+        <li><a href="league.html">Leagues</a></li>
+        <li><a href="team.html">Build Team</a></li>
+        <li><a href="leaderboard.html">Leaderboard</a></li>
+        <li><a href="compare.html">Compare</a></li>
+      </ul>
+      <div class="nav-user">
+        <div class="nav-avatar" id="nav-avatar">U</div>
+        <span id="nav-username" style="font-weight:600;font-size:14px;color:var(--text2)"></span>
+        <button class="btn btn-secondary btn-sm" id="logout-btn">Logout</button>
+      </div>
+      <div class="hamburger" id="hamburger"><span></span><span></span><span></span></div>
+    </div>
+  </nav>
+
+  <div class="container">
+    <!-- Header -->
+    <div class="page-header" style="display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:12px">
+      <div>
+        <div class="page-title">MATCH CENTER</div>
+        <div class="page-subtitle" id="last-updated">Loading matches…</div>
+      </div>
+      <div class="flex gap-8">
+        <button class="btn btn-secondary btn-sm" onclick="HomeActions.setApiKey()">⚙️ API Key</button>
+        <button class="btn btn-outline btn-sm" onclick="HomeActions.refresh()">↻ Refresh</button>
+      </div>
+    </div>
+
+    <!-- Stats row -->
+    <div class="stats-row" id="stats-row">
+      <div class="stat-card"><div class="stat-value" id="stat-live">—</div><div class="stat-label">Live Now</div></div>
+      <div class="stat-card"><div class="stat-value" id="stat-upcoming">—</div><div class="stat-label">Next 24h</div></div>
+      <div class="stat-card"><div class="stat-value" id="stat-finished">—</div><div class="stat-label">Finished</div></div>
+      <div class="stat-card"><div class="stat-value" id="stat-leagues">—</div><div class="stat-label">My Leagues</div></div>
+    </div>
+
+    <!-- Live Matches -->
+    <div id="live-section">
+      <div class="section-label">🔴 Live Now</div>
+      <div class="matches-grid" id="live-matches"><div class="loading-spinner"><div class="spinner"></div></div></div>
+    </div>
+
+    <!-- Upcoming 24h -->
+    <div id="upcoming-section">
+      <div class="section-label">⏰ Upcoming — Next 24 Hours</div>
+      <div class="matches-grid" id="upcoming-matches"><div class="loading-spinner"><div class="spinner"></div></div></div>
+    </div>
+
+    <!-- Past Matches -->
+    <div id="past-section">
+      <div class="section-label">📜 Past Matches</div>
+      <div class="matches-grid" id="past-matches"><div class="loading-spinner"><div class="spinner"></div></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── CREATE LEAGUE MODAL ── -->
+<div class="modal-overlay" id="modal-create-league">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">🏆 Create Private League</div>
+      <button class="modal-close">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="cl-match-name" style="background:var(--bg3);border-radius:8px;padding:12px 16px;font-weight:700;margin-bottom:16px;color:var(--accent)"></div>
+      <div class="form-group">
+        <label class="form-label">League Name</label>
+        <input class="form-input" id="cl-name" placeholder="e.g. Boys League, Office Cricket…" maxlength="30">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="Modal.close('modal-create-league')">Cancel</button>
+      <button class="btn btn-primary" onclick="HomeActions.submitCreateLeague()">Create League</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── JOIN LEAGUE MODAL ── -->
+<div class="modal-overlay" id="modal-join-league">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">🔗 Join League</div>
+      <button class="modal-close">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">League Code</label>
+        <input class="form-input" id="jl-code" placeholder="Enter 6-character code" maxlength="6" style="letter-spacing:4px;font-family:'JetBrains Mono',monospace;font-size:20px;text-transform:uppercase">
+        <div class="form-hint">Get the code from whoever created the league.</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="Modal.close('modal-join-league')">Cancel</button>
+      <button class="btn btn-primary" onclick="HomeActions.submitJoinLeague()">Join League</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── API KEY MODAL ── -->
+<div class="modal-overlay" id="modal-api-key">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">⚙️ API Settings</div>
+      <button class="modal-close">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">CricAPI Key</label>
+        <input class="form-input" id="api-key-input" placeholder="Paste your CricAPI key here">
+        <div class="form-hint">
+          Get a free key at <a href="https://cricapi.com" target="_blank" style="color:var(--accent)">cricapi.com</a>
+          (100 free requests/day). Without a key, demo data is shown.
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="Modal.close('modal-api-key')">Cancel</button>
+      <button class="btn btn-primary" onclick="HomeActions.saveApiKey()">Save Key</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── LEAGUE CREATED MODAL ── -->
+<div class="modal-overlay" id="modal-league-created">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">🎉 League Created!</div>
+      <button class="modal-close">✕</button>
+    </div>
+    <div class="modal-body" style="text-align:center">
+      <div style="color:var(--text2);margin-bottom:8px">Share this code with your friends:</div>
+      <div class="league-code" id="created-league-code">------</div>
+      <button class="btn btn-secondary btn-sm mt-8" onclick="HomeActions.copyCode()">📋 Copy Code</button>
+      <div style="margin-top:20px;font-size:14px;color:var(--text3)">They can join using the "Join League" button on any match card.</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="Modal.close('modal-league-created')">Close</button>
+      <a id="go-to-league-btn" href="league.html" class="btn btn-primary">Go to League →</a>
+    </div>
+  </div>
+</div>
+
+<script src="js/app.js"></script>
+<script src="js/matches.js"></script>
+<script src="js/points.js"></script>
+<script>
+const HomeActions = {
+  _pendingMatchId: null,
+  _pendingMatchName: null,
+  _createdCode: null,
+
+  async init() {
+    // Check login
+    if (!Auth.currentUser) {
+      document.getElementById('login-screen').classList.remove('hidden');
+      document.getElementById('main-app').classList.add('hidden');
+      return;
+    }
+    document.getElementById('login-screen').classList.add('hidden');
+    document.getElementById('main-app').classList.remove('hidden');
+    seedDemoStats();
+    await this.loadMatches();
+    this.updateStats();
+  },
+
+  async loadMatches() {
+    const matches = await Matches.fetchAll();
+    const live = Matches.getLive(matches);
+    const upcoming = Matches.getUpcoming24h(matches);
+    const past = Matches.getFinished(matches);
+
+    document.getElementById('last-updated').textContent = `Updated: ${new Date().toLocaleTimeString('en-IN')}`;
+    document.getElementById('stat-live').textContent = live.length;
+    document.getElementById('stat-upcoming').textContent = upcoming.length;
+    document.getElementById('stat-finished').textContent = past.length;
+
+    const render = (id, arr, empty) => {
+      const el = document.getElementById(id);
+      if (!arr.length) {
+        el.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">${empty[0]}</div><div class="empty-title">${empty[1]}</div><div class="empty-subtitle">${empty[2]}</div></div>`;
+      } else {
+        el.innerHTML = arr.map(m => Matches.renderCard(m, 'home')).join('');
+      }
+    };
+
+    render('live-matches', live, ['📡', 'No live matches', 'Check back soon!']);
+    render('upcoming-matches', upcoming, ['⏰', 'No upcoming matches in 24h', 'Nothing scheduled yet']);
+    render('past-matches', past, ['📜', 'No past matches', 'Match history will appear here']);
+  },
+
+  updateStats() {
+    const leagues = Leagues.getUserLeagues(Auth.currentUser?.username || '');
+    document.getElementById('stat-leagues').textContent = leagues.length;
+  },
+
+  async refresh() {
+    Matches.cache = null;
+    Toast.show('Refreshing matches…', 'info', 1500);
+    await this.loadMatches();
+  },
+
+  createLeague(matchId, matchName) {
+    if (!Auth.require()) return;
+    this._pendingMatchId = matchId;
+    this._pendingMatchName = decodeURIComponent(matchName.replace(/\\'/g, "'"));
+    document.getElementById('cl-match-name').textContent = '🏏 ' + this._pendingMatchName;
+    document.getElementById('cl-name').value = '';
+    Modal.open('modal-create-league');
+  },
+
+  submitCreateLeague() {
+    const name = document.getElementById('cl-name').value.trim();
+    if (!name) { Toast.show('Enter a league name', 'error'); return; }
+    const code = Leagues.create(name, this._pendingMatchId, this._pendingMatchName, Auth.currentUser.username);
+    Modal.close('modal-create-league');
+    this._createdCode = code;
+    document.getElementById('created-league-code').textContent = code;
+    document.getElementById('go-to-league-btn').href = `league.html?code=${code}`;
+    Modal.open('modal-league-created');
+    this.updateStats();
+  },
+
+  joinLeague(matchId, matchName) {
+    if (!Auth.require()) return;
+    document.getElementById('jl-code').value = '';
+    Modal.open('modal-join-league');
+  },
+
+  submitJoinLeague() {
+    const code = document.getElementById('jl-code').value.trim().toUpperCase();
+    if (code.length < 6) { Toast.show('Enter a valid 6-char code', 'error'); return; }
+    const result = Leagues.join(code, Auth.currentUser.username);
+    if (!result.ok) { Toast.show(result.msg, 'error'); return; }
+    Modal.close('modal-join-league');
+    Toast.show('Joined league! Build your team.', 'success');
+    this.updateStats();
+    setTimeout(() => { window.location.href = `league.html?code=${code}`; }, 800);
+  },
+
+  viewLeague(matchId) {
+    window.location.href = `league.html`;
+  },
+
+  copyCode() {
+    if (navigator.clipboard && this._createdCode) {
+      navigator.clipboard.writeText(this._createdCode);
+      Toast.show('Code copied!', 'success');
+    }
+  },
+
+  setApiKey() {
+    document.getElementById('api-key-input').value = Store.get('pd11_api_key') || '';
+    Modal.open('modal-api-key');
+  },
+
+  saveApiKey() {
+    const key = document.getElementById('api-key-input').value.trim();
+    Store.set('pd11_api_key', key);
+    Modal.close('modal-api-key');
+    Toast.show(key ? 'API key saved! Refreshing…' : 'API key cleared', 'success');
+    if (key) { Matches.cache = null; this.loadMatches(); }
+  },
+};
+
+// Login
+document.getElementById('login-btn').addEventListener('click', () => {
+  const u = document.getElementById('login-username').value.trim();
+  const p = document.getElementById('login-pin').value.trim();
+  const err = document.getElementById('login-error');
+  if (!u || u.length < 2) { err.textContent = 'Username must be at least 2 chars'; err.style.display = 'block'; return; }
+  if (!p || p.length < 4 || !/^\d+$/.test(p)) { err.textContent = 'PIN must be 4–6 digits'; err.style.display = 'block'; return; }
+  const result = Auth.login(u, p);
+  if (!result.ok) { err.textContent = result.msg; err.style.display = 'block'; return; }
+  err.style.display = 'none';
+  HomeActions.init();
+});
+
+// Enter key on PIN
+document.getElementById('login-pin').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('login-btn').click();
+});
+
+document.addEventListener('DOMContentLoaded', () => { HomeActions.init(); });
+</script>
+</body>
+</html>
