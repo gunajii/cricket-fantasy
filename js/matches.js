@@ -11,8 +11,16 @@ const Matches = {
   cacheTime: 0,
   cacheTTL: 120000,
 
+  // ─────────────────────────────
+  // FETCH MATCHES
+  // ─────────────────────────────
+
   async fetchAll() {
-    if (this.cache && Date.now() - this.cacheTime < this.cacheTTL) {
+    if (
+      this.cache &&
+      Date.now() - this.cacheTime <
+        this.cacheTTL
+    ) {
       return this.cache;
     }
 
@@ -23,105 +31,208 @@ const Matches = {
         `${this.baseUrl}/currentMatches?apikey=${key}&offset=0`
       );
 
-      const data = await res.json();
+      const data =
+        await res.json();
 
-      if (data.status !== 'success') {
-        throw new Error(data.reason || 'API error');
+      if (
+        data.status !==
+        'success'
+      ) {
+        throw new Error(
+          data.reason
+        );
       }
 
-      const matches = (data.data || []).map(m =>
-        this.normalise(m)
-      );
+      const matches =
+        (data.data || []).map(
+          (m) =>
+            this.normalise(m)
+        );
 
       this.cache = matches;
-      this.cacheTime = Date.now();
+      this.cacheTime =
+        Date.now();
 
       return matches;
     } catch (e) {
-      console.warn('API failed, using demo');
+      console.warn(
+        'API failed — using demo'
+      );
 
       return this.getDemoMatches();
     }
   },
 
-  normalise(m) {
-    const start = m.dateTimeGMT
-      ? new Date(m.dateTimeGMT).getTime()
-      : 0;
+  // ─────────────────────────────
+  // NORMALISE DATA
+  // ─────────────────────────────
 
-    let status = 'upcoming';
+  normalise(m) {
+    const start =
+      m.dateTimeGMT
+        ? new Date(
+            m.dateTimeGMT
+          ).getTime()
+        : 0;
+
+    let status =
+      'upcoming';
 
     if (m.matchEnded)
-      status = 'finished';
-    else if (m.matchStarted)
+      status =
+        'finished';
+    else if (
+      m.matchStarted
+    )
       status = 'live';
 
     const teams =
-      m.teams || [m.t1, m.t2];
+      m.teams ||
+      [m.t1, m.t2];
 
     return {
       id: m.id,
+
       name: m.name,
+
+      seriesName:
+        m.seriesName ||
+        m.series_id ||
+        '',
+
       startTime: start,
-      venue: m.venue,
-      format: (m.matchType || 'T20').toUpperCase(),
+
+      venue:
+        m.venue || '',
+
+      format:
+        (
+          m.matchType ||
+          'T20'
+        ).toUpperCase(),
+
       status,
 
       team1: {
         name: teams[0],
-        shortName: this.shortName(teams[0])
+        shortName:
+          this.shortName(
+            teams[0]
+          ),
       },
 
       team2: {
         name: teams[1],
-        shortName: this.shortName(teams[1])
-      }
+        shortName:
+          this.shortName(
+            teams[1]
+          ),
+      },
     };
   },
 
   shortName(name) {
-    if (!name) return 'TBD';
+    if (!name)
+      return 'TBD';
 
     const words =
-      name.trim().split(' ');
+      name
+        .trim()
+        .split(' ');
 
-    if (words.length === 1)
+    if (
+      words.length === 1
+    )
       return name
         .substring(0, 3)
         .toUpperCase();
 
     return words
-      .map(w => w[0])
+      .map(
+        (w) => w[0]
+      )
       .join('')
       .substring(0, 3)
       .toUpperCase();
   },
 
+  // ─────────────────────────────
+  // IPL FILTER
+  // ─────────────────────────────
+
+  isIPL(match) {
+    if (!match)
+      return false;
+
+    const name =
+      (
+        match.name || ''
+      ).toLowerCase();
+
+    const series =
+      (
+        match.seriesName ||
+        ''
+      ).toLowerCase();
+
+    return (
+      name.includes('ipl') ||
+      name.includes(
+        'indian premier league'
+      ) ||
+      series.includes(
+        'ipl'
+      ) ||
+      series.includes(
+        'indian premier league'
+      )
+    );
+  },
+
+  // ─────────────────────────────
+  // FILTERS
+  // ─────────────────────────────
+
   getLive(all) {
     return all.filter(
-      m => m.status === 'live'
+      (m) =>
+        m.status ===
+          'live' &&
+        this.isIPL(m)
     );
   },
 
   getUpcoming24h(all) {
     return all.filter(
-      m =>
-        m.status === 'upcoming' &&
-        Time.isWithin24h(m.startTime)
+      (m) =>
+        m.status ===
+          'upcoming' &&
+        this.isIPL(m) &&
+        Time.isWithin24h(
+          m.startTime
+        )
     );
   },
 
   getFinished(all) {
     return all
       .filter(
-        m => m.status === 'finished'
+        (m) =>
+          m.status ===
+            'finished' &&
+          this.isIPL(m)
       )
       .slice(0, 10);
   },
 
+  // ─────────────────────────────
+  // MATCH CARD
+  // ─────────────────────────────
+
   renderCard(match) {
     const isUpcoming =
-      match.status === 'upcoming';
+      match.status ===
+      'upcoming';
 
     let actions = '';
 
@@ -160,41 +271,67 @@ const Matches = {
 
   escapeHtml(str) {
     return String(str)
-      .replace(/'/g, "\\'")
-      .replace(/"/g, '&quot;');
+      .replace(
+        /'/g,
+        "\\'"
+      )
+      .replace(
+        /"/g,
+        '&quot;'
+      );
   },
 
-  async fetchPlayers(matchId) {
-    const key = this.apiKey();
+  // ─────────────────────────────
+  // PLAYERS
+  // ─────────────────────────────
+
+  async fetchPlayers(
+    matchId
+  ) {
+    const key =
+      this.apiKey();
 
     try {
-      const res = await fetch(
-        `${this.baseUrl}/match_squad?apikey=${key}&id=${matchId}`
-      );
+      const res =
+        await fetch(
+          `${this.baseUrl}/match_squad?apikey=${key}&id=${matchId}`
+        );
 
-      const data = await res.json();
+      const data =
+        await res.json();
 
       if (
-        data.status !== 'success' ||
+        data.status !==
+          'success' ||
         !data.data
       ) {
-        throw new Error('No players');
+        throw new Error(
+          'No players'
+        );
       }
 
-      return data.data.map(p => ({
-        id: p.id,
-        name: p.name,
-        team: p.teamName,
-        role: this.mapRole(p.role),
-        roleEmoji:
-          this.roleEmoji(p.role),
-        credits: 8,
-        status:
-          p.playing
-            ? 'announced'
-            : 'unannounced',
-        points: 0
-      }));
+      return data.data.map(
+        (p) => ({
+          id: p.id,
+          name: p.name,
+          team:
+            p.teamName,
+          role:
+            this.mapRole(
+              p.role
+            ),
+          roleEmoji:
+            this.roleEmoji(
+              p.role
+            ),
+          credits: 8,
+          status:
+            p.playing
+              ? 'announced'
+              : 'unannounced',
+          points: 0,
+        })
+      );
     } catch (e) {
       console.warn(
         'Player API failed'
@@ -207,89 +344,121 @@ const Matches = {
   },
 
   mapRole(role) {
-    if (!role) return 'BAT';
+    if (!role)
+      return 'BAT';
 
     const r =
       role.toLowerCase();
 
-    if (r.includes('keeper'))
+    if (
+      r.includes(
+        'keeper'
+      )
+    )
       return 'WK';
 
-    if (r.includes('bowl'))
+    if (
+      r.includes(
+        'bowl'
+      )
+    )
       return 'BOWL';
 
-    if (r.includes('all'))
+    if (
+      r.includes(
+        'all'
+      )
+    )
       return 'ALL';
 
     return 'BAT';
   },
 
   roleEmoji(role) {
-    if (role === 'WK')
+    if (
+      role === 'WK'
+    )
       return '🧤';
 
-    if (role === 'BOWL')
+    if (
+      role === 'BOWL'
+    )
       return '🎳';
 
-    if (role === 'ALL')
+    if (
+      role === 'ALL'
+    )
       return '⚡';
 
     return '🏏';
   },
 
-  getDemoPlayers(matchId) {
-    const teams =
-      ['Team A', 'Team B'];
+  // ─────────────────────────────
+  // DEMO PLAYERS
+  // ─────────────────────────────
 
-    const roles =
-      [
-        'WK',
-        'BAT',
-        'BAT',
-        'BAT',
-        'ALL',
-        'ALL',
-        'ALL',
-        'BOWL',
-        'BOWL',
-        'BOWL',
-        'BOWL'
-      ];
+  getDemoPlayers(
+    matchId
+  ) {
+    const teams = [
+      'Team A',
+      'Team B',
+    ];
+
+    const roles = [
+      'WK',
+      'BAT',
+      'BAT',
+      'BAT',
+      'ALL',
+      'ALL',
+      'ALL',
+      'BOWL',
+      'BOWL',
+      'BOWL',
+      'BOWL',
+    ];
 
     let players = [];
 
-    teams.forEach(team => {
-      roles.forEach((role, i) => {
-        players.push({
-          id:
-            matchId +
-            '_' +
-            team +
-            '_' +
-            i,
+    teams.forEach(
+      (team) => {
+        roles.forEach(
+          (role, i) => {
+            players.push({
+              id:
+                matchId +
+                '_' +
+                team +
+                '_' +
+                i,
 
-          name:
-            team +
-            ' Player ' +
-            (i + 1),
+              name:
+                team +
+                ' Player ' +
+                (i + 1),
 
-          team,
+              team,
 
-          role,
+              role,
 
-          roleEmoji:
-            this.roleEmoji(role),
+              roleEmoji:
+                this.roleEmoji(
+                  role
+                ),
 
-          credits: 8,
+              credits: 8,
 
-          status:
-            'unannounced',
+              status:
+                'unannounced',
 
-          points: 0
-        });
-      });
-    });
+              points: 0,
+            });
+          }
+        );
+      }
+    );
 
     return players;
-  }
+  },
 };
