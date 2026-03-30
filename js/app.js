@@ -349,3 +349,71 @@ document.addEventListener(
     Auth.init();
   }
 );
+
+// ── RESTORED HELPERS ──
+
+const Time = {
+  formatMatch(ts) {
+    if (!ts) return '';
+
+    const d = new Date(ts);
+
+    return d.toLocaleString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  },
+
+  isWithin24h(ts) {
+    if (!ts) return false;
+
+    const now = Date.now();
+
+    return (
+      ts > now &&
+      ts <= now + 86400000
+    );
+  },
+
+  countdown(ts) {
+    const diff = ts - Date.now();
+
+    if (diff <= 0)
+      return 'Starting soon';
+
+    const h = Math.floor(diff / 3600000);
+
+    const m = Math.floor(
+      (diff % 3600000) / 60000
+    );
+
+    if (h > 0)
+      return `${h}h ${m}m`;
+
+    return `${m}m`;
+  }
+};
+
+const Modal = {
+  open(id) {
+    const el =
+      document.getElementById(id);
+
+    if (el)
+      el.classList.add('open');
+  },
+
+  close(id) {
+    const el =
+      document.getElementById(id);
+
+    if (el)
+      el.classList.remove('open');
+  }
+};
+
+function seedDemoStats() {
+  return;
+}
