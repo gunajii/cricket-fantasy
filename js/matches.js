@@ -160,34 +160,33 @@ const Matches = {
   // IPL FILTER
   // ─────────────────────────────
 
-  isIPL(match) {
-    if (!match)
-      return false;
+isIPL(match) {
+  if (!match) return false;
 
-    const name =
-      (
-        match.name || ''
-      ).toLowerCase();
+  const name =
+    (match.name || "")
+      .toLowerCase();
 
-    const series =
-      (
-        match.seriesName ||
-        ''
-      ).toLowerCase();
+  const series =
+    (match.seriesName || "")
+      .toLowerCase();
 
-    return (
-      name.includes('ipl') ||
-      name.includes(
-        'indian premier league'
-      ) ||
-      series.includes(
-        'ipl'
-      ) ||
-      series.includes(
-        'indian premier league'
-      )
-    );
-  },
+  // STRICT IPL detection
+  return (
+    series === "indian premier league" ||
+    series.includes("indian premier league") ||
+    name.includes("ipl") ||
+    name.includes("punjab") ||
+    name.includes("gujarat") ||
+    name.includes("mumbai") ||
+    name.includes("chennai") ||
+    name.includes("kolkata") ||
+    name.includes("bangalore") ||
+    name.includes("delhi") ||
+    name.includes("rajasthan") ||
+    name.includes("hyderabad")
+  );
+}
 
   // ─────────────────────────────
   // FILTERS
